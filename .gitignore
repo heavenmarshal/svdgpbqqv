@@ -1,0 +1,9 @@
+*.RData
+*~
+\.\#*
+*.o
+Makevars
+test*
+*.a
+*.so
+.Rhistory
