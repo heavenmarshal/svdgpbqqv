@@ -23,12 +23,18 @@ void prodCorr(const VectorXd&, const VectorXd&, const VectorXi&,
 void addCorr(const MatrixXd&, const VectorXd&, const VectorXd&,
 	     const VectorXi&, const MatrixXd&, const MatrixXi&,
 	     MatrixXd&);
+void addHomCorr(const VectorXd&,const VectorXd&,
+		const VectorXi&, const MatrixXd&,
+		const MatrixXi&, MatrixXd&);
 double loglikProd(const VectorXd&, const VectorXd&,
 		  const VectorXi&, const MatrixXd&,
 		  const MatrixXi&, const VectorXd&);
 double loglikAdd(const MatrixXd&, const VectorXd&, const VectorXd&,
 		 const VectorXi&, const MatrixXd&, const MatrixXi&,
 		 const VectorXd&);
+double loglikAddHom(const VectorXd&, const VectorXd&,
+		    const VectorXi&, const MatrixXd&,
+		    const MatrixXi&, const VectorXd&);
 void prodCrossCorr(const VectorXd&, const VectorXd&,
 		   const VectorXi&, const MatrixXd&,
 		   const MatrixXd&, const MatrixXi&,
@@ -36,7 +42,10 @@ void prodCrossCorr(const VectorXd&, const VectorXd&,
 void addCrossCorr(const MatrixXd&, const VectorXd&, const VectorXd&,
 		  const VectorXi&, const MatrixXd&, const MatrixXd&,
 		  const MatrixXi&, const MatrixXi&, MatrixXd&);
-
+void addHomCrossCorr(const VectorXd&, const VectorXd&,
+		     const VectorXi&, const MatrixXd&,
+		     const MatrixXd&, const MatrixXi&,
+		     const MatrixXi&, MatrixXd&);
 void prodPredict(const MatrixXd&, const MatrixXi&, const MatrixXd&,
 		 const MatrixXi&, const VectorXd&,
 		 const VectorXd&, const VectorXd&,
@@ -46,5 +55,8 @@ void addPredict(const MatrixXd&, const MatrixXi&, const MatrixXd&,
 		const MatrixXi&, const VectorXd&, const MatrixXd&,
 		const VectorXd&, const VectorXd&,
 		const VectorXi&, VectorXd&, VectorXd&);
-
+void addHomPredict(const MatrixXd&, const MatrixXi&, const MatrixXd&,
+		   const MatrixXi&,  const VectorXd&,
+		   const VectorXd&, const VectorXd&,
+		   const VectorXi&, VectorXd&, VectorXd&);
 #endif

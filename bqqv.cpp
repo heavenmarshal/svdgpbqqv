@@ -95,7 +95,7 @@ void prodCorr(const VectorXd& phi, const VectorXd& vtheta,
   double tmp;
   vector<MatrixXd> vQualCorr;
   MatrixXd quancorr;
-  
+
   vecQualCorr(vtheta, levels, vQualCorr);
   quanCorr(phi, X, quancorr);
   corr = quancorr;
@@ -140,7 +140,42 @@ void addCorr(const MatrixXd& phi, const VectorXd& vtheta, const VectorXd& vsigma
       }
     }
   }
+
+}
+// additive correlation for qualitative factors with homogoneous correlation
+// for quantitative variables
+void addHomCorr(const VectorXd& phi, const VectorXd& vtheta,
+		const VectorXi& levels, const MatrixXd& X,
+		const MatrixXi& Z, MatrixXd& corr)
+{
+  int n = X.rows();
+  int q = Z.cols();
+  double tmp;
+  vector<MatrixXd> vQualCorr;
+  MatrixXd quancorr;
+  MatrixXd qualcorr = MatrixXd::Zero(n,n);
   
+  vecQualCorr(vtheta, levels, vQualCorr);
+  quanCorr(phi, X, quancorr);
+  corr = quancorr;
+  vmciter it;
+  int k;
+  for(it = vQualCorr.begin(), k = 0; it != vQualCorr.end(); ++it, ++k)
+    for(int i=0; i!= n; ++i)
+      for(int j=0; j!=i; ++j)
+      {
+	tmp = (*it)(Z(i,k),Z(j,k));
+	qualcorr(i,j) += tmp;
+      }
+  qualcorr /= (double) q;
+
+  for(int i = 0; i != n; ++i)
+    for(int j = 0; j != i; ++j)
+    {
+      tmp = qualcorr(i,j);
+      corr(i,j) *= tmp;
+      corr(j,i) *= tmp;
+    }
 }
 
 double loglikProd(const VectorXd& phi, const VectorXd& vtheta,
@@ -188,7 +223,7 @@ double loglikAdd(const MatrixXd& phi, const VectorXd& vtheta, const VectorXd& vs
   VectorXd one = VectorXd::Constant(n,1.0);
   VectorXd soly = lltcorr.solve(resp);
   VectorXd sol1 = lltcorr.solve(one);
-  
+
   double quady = resp.dot(soly);
   double quad1 = one.dot(sol1);
   double bily1 = resp.dot(sol1);
@@ -196,6 +231,35 @@ double loglikAdd(const MatrixXd& phi, const VectorXd& vtheta, const VectorXd& vs
   double rss = quady - bily1*bily1/quad1;
   double logdet = lmat.diagonal().array().log().sum();
   double loglik = -0.5*(dn*LOG2PI+rss)-logdet;
+  return loglik;
+}
+
+double loglikAddHom(const VectorXd& phi, const VectorXd& vtheta,
+		    const VectorXi& levels, const MatrixXd& X,
+		    const MatrixXi& Z, const VectorXd& resp)
+{
+  MatrixXd corr;
+  int n = X.rows();
+  double dn = (double)n;
+  MatrixXd lmat;
+  addHomCorr(phi, vtheta, levels, X, Z, corr);
+  LLTMd lltcorr(corr);
+  if(lltcorr.info() != Eigen::Success)
+    error("Cholesky failure for correlation matrix!");
+  lmat = lltcorr.matrixL();
+  VectorXd one = VectorXd::Constant(n,1.0);
+  VectorXd soly = lltcorr.solve(resp);
+  VectorXd sol1 = lltcorr.solve(one);
+
+  double quady = resp.dot(soly);
+  double quad1 = one.dot(sol1);
+  double bily1 = resp.dot(sol1);
+  double rss = quady - bily1*bily1/quad1;
+
+  double sigma2 = rss/dn;
+  double logdet = lmat.diagonal().array().log().sum();
+
+  double loglik = -0.5*dn*(LOG2PI+log(sigma2)+1.0)-logdet;
   return loglik;
 }
 
@@ -239,6 +303,27 @@ void addCrossCorr(const MatrixXd& phi, const VectorXd& vtheta, const VectorXd& v
 	corr(i,j) += (*it)(Z1(i,k), Z2(j,k)) * sigma2 * quancorr(i,j);
   }
 }
+void addHomCrossCorr(const VectorXd& phi, const VectorXd& vtheta,
+		     const VectorXi& levels, const MatrixXd& X1,
+		     const MatrixXd& X2, const MatrixXi& Z1,
+		     const MatrixXi& Z2, MatrixXd& corr)
+{
+  int n1 = X1.rows();
+  int n2 = X2.rows();
+  int q = Z1.cols();
+  vector<MatrixXd> vQualCorr;
+  MatrixXd qualcrosscorr = MatrixXd::Zero(n1,n2);
+  vecQualCorr(vtheta, levels, vQualCorr);
+  quanCrossCorr(phi, X1, X2, corr);
+  vmciter it;
+  int k;
+  for(it = vQualCorr.begin(), k = 0; it != vQualCorr.end(); ++it, ++k)
+    for(int i = 0; i != n1; ++i)
+      for(int j = 0; j != n2; ++j)
+	qualcrosscorr(i,j) += (*it)(Z1(i,k),Z2(j,k));
+  qualcrosscorr /= (double) q;
+  corr.noalias() = corr.cwiseProduct(qualcrosscorr);
+}
 
 void prodPredict(const MatrixXd& X0, const MatrixXi& Z0, const MatrixXd& X,
 		 const MatrixXi& Z,  const VectorXd& resp,
@@ -272,7 +357,7 @@ void prodPredict(const MatrixXd& X0, const MatrixXi& Z0, const MatrixXd& X,
   psig2 = crosscorr.colwise().sum();
   psig2 = 1.0 - psig2.array();
   psig2 = psig2 * sigma2;
-  }
+}
 
 void addPredict(const MatrixXd& X0, const MatrixXi& Z0, const MatrixXd& X,
 		const MatrixXi& Z,  const VectorXd& resp, const MatrixXd& phi,
@@ -289,7 +374,7 @@ void addPredict(const MatrixXd& X0, const MatrixXi& Z0, const MatrixXd& X,
   VectorXd one = VectorXd::Constant(n,1.0);
   VectorXd soly = lltcorr.solve(resp);
   VectorXd sol1 = lltcorr.solve(one);
-  
+
   double quad1 = one.dot(sol1);
   double bily1 = resp.dot(sol1);
   double muhat = bily1/quad1;
@@ -302,4 +387,38 @@ void addPredict(const MatrixXd& X0, const MatrixXi& Z0, const MatrixXd& X,
   crosscorr = crosscorr.array() * solcross.transpose().array();
   psig2 = crosscorr.colwise().sum();
   psig2 = sigma2 - psig2.array();
+}
+
+void addHomPredict(const MatrixXd& X0, const MatrixXi& Z0, const MatrixXd& X,
+		   const MatrixXi& Z,  const VectorXd& resp,
+		   const VectorXd& phi, const VectorXd& vtheta,
+		   const VectorXi& levels, VectorXd& pmean, VectorXd& psig2)
+{
+  int n = X.rows();
+  double dn = (double)n;
+  MatrixXd corr, crosscorr;
+  addHomCorr(phi, vtheta, levels, X, Z, corr);
+  LLTMd lltcorr(corr);
+  if(lltcorr.info() != Eigen::Success)
+    error("Cholesky failure for correlation matrix!");
+
+  VectorXd one = VectorXd::Constant(n,1.0);
+  VectorXd soly = lltcorr.solve(resp);
+  VectorXd sol1 = lltcorr.solve(one);
+
+  double quady = resp.dot(soly);
+  double quad1 = one.dot(sol1);
+  double bily1 = resp.dot(sol1);
+  double muhat = bily1/quad1;
+  double sigma2 = quady - bily1*bily1/quad1;
+  sigma2 /= dn;
+  addHomCrossCorr(phi, vtheta, levels, X0, X, Z0, Z, crosscorr);
+  pmean = soly - muhat * sol1;
+  pmean = crosscorr * pmean;
+  pmean = pmean.array() + muhat;
+  MatrixXd solcross = lltcorr.solve(crosscorr.transpose());
+  crosscorr = crosscorr.array() * solcross.transpose().array();
+  psig2 = crosscorr.colwise().sum();
+  psig2 = 1.0 - psig2.array();
+  psig2 = psig2 * sigma2;
 }
