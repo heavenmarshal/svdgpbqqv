@@ -1,15 +1,35 @@
 #include"bqqv.h"
 #include<cmath>
 #include<R.h>
+#include<R_ext/Lapack.h>
 #define SQ(x) ((x)*(x))
 #define LOG2PI 1.83787706641
 
 using Eigen::LLT;
-using Eigen::JacobiSVD;
 typedef LLT<MatrixXd> LLTMd;
-typedef JacobiSVD<MatrixXd> SVDMd;
 typedef vector<MatrixXd>::const_iterator vmciter;
 // note that the levels of the qualitative factor start from 0 to nlevel - 1;
+
+// the input mat must be a symetric matrix
+void nugDetermine(const MatrixXd& mat, double& cond, double& anorm)
+{
+  int n = mat.cols();
+  int info;
+  char typeNorm[] = {'1','\0'};
+  double val;
+  double *matcp = new double[n*n];
+  double *work = new double[4*n];
+  int *iwork = new int[n];
+  
+  std::copy(mat.data(), mat.data()+n*n,matcp);
+  anorm = F77_CALL(dlange)(typeNorm,&n,&n,matcp,&n,work);
+  F77_CALL(dgetrf)(&n,&n,matcp,&n, iwork, &info);
+  F77_CALL(dgecon)(typeNorm, &n, matcp, &n, &anorm, &val, work, iwork, &info);
+  cond = 1.0/val;
+  delete matcp;
+  delete work;
+  delete iwork;
+}
 void qualCorr(const VectorXd& theta, int nlevel, MatrixXd& corrmat)
 {
   MatrixXd umat = MatrixXd::Zero(nlevel,nlevel);
@@ -187,17 +207,15 @@ double loglikProd(const VectorXd& phi, const VectorXd& vtheta,
   MatrixXd corr;
   int n = X.rows();
   double dn = (double)n;
+  double cond, anorm, ethres;
   MatrixXd lmat;
   prodCorr(phi, vtheta, levels, X, Z, corr);
-  
-  SVDMd svdcorr(corr);
-  VectorXd svalcorr = svdcorr.singularValues();
-  double cond = svalcorr(0)/svalcorr(svalcorr.size()-1);
-  double ethres;
+  nugDetermine(corr, cond, anorm);
+
   if(log(cond) > condthres)
   {
     ethres = exp(condthres);
-    nug = svalcorr(0)*(cond-ethres)/cond/(ethres-1.0);
+    nug = anorm*(cond-ethres)/cond/(ethres-1.0);
     corr += nug * MatrixXd::Identity(n,n);
   }
   LLTMd lltcorr(corr);
@@ -226,17 +244,14 @@ double loglikAdd(const MatrixXd& phi, const VectorXd& vtheta, const VectorXd& vs
 {
   int n = X.rows();
   double dn = (double)n;
+  double cond, anorm, ethres;
   MatrixXd corr, lmat;
   addCorr(phi, vtheta, vsigma2, levels, X, Z, corr);
-
-  SVDMd svdcorr(corr);
-  VectorXd svalcorr = svdcorr.singularValues();
-  double cond = svalcorr(0)/svalcorr(svalcorr.size()-1);
-  double ethres;
+  nugDetermine(corr, cond, anorm);
   if(log(cond) > condthres)
   {
     ethres = exp(condthres);
-    nug = svalcorr(0)*(cond-ethres)/cond/(ethres-1.0);
+    nug = anorm*(cond-ethres)/cond/(ethres-1.0);
     corr += nug * MatrixXd::Identity(n,n);
   }
   
@@ -266,18 +281,16 @@ double loglikAddHom(const VectorXd& phi, const VectorXd& vtheta,
 {
   MatrixXd corr;
   int n = X.rows();
+  double cond, anorm, ethres;
   double dn = (double)n;
   MatrixXd lmat;
   addHomCorr(phi, vtheta, levels, X, Z, corr);
-  
-  SVDMd svdcorr(corr);
-  VectorXd svalcorr = svdcorr.singularValues();
-  double cond = svalcorr(0)/svalcorr(svalcorr.size()-1);
-  double ethres;
+  nugDetermine(corr, cond, anorm);
+    
   if(log(cond) > condthres)
   {
     ethres = exp(condthres);
-    nug = svalcorr(0)*(cond-ethres)/cond/(ethres-1.0);
+    nug = anorm*(cond-ethres)/cond/(ethres-1.0);
     corr += nug * MatrixXd::Identity(n,n);
   }
   
