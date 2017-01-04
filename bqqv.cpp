@@ -5,8 +5,9 @@
 #define LOG2PI 1.83787706641
 
 using Eigen::LLT;
+using Eigen::JacobiSVD;
 typedef LLT<MatrixXd> LLTMd;
-
+typedef JacobiSVD<MatrixXd> SVDMd;
 typedef vector<MatrixXd>::const_iterator vmciter;
 // note that the levels of the qualitative factor start from 0 to nlevel - 1;
 void qualCorr(const VectorXd& theta, int nlevel, MatrixXd& corrmat)
@@ -180,13 +181,25 @@ void addHomCorr(const VectorXd& phi, const VectorXd& vtheta,
 
 double loglikProd(const VectorXd& phi, const VectorXd& vtheta,
 		  const VectorXi& levels, const MatrixXd& X,
-		  const MatrixXi& Z, const VectorXd& resp)
+		  const MatrixXi& Z, const VectorXd& resp,
+		  double condthres, double& nug)
 {
   MatrixXd corr;
   int n = X.rows();
   double dn = (double)n;
   MatrixXd lmat;
   prodCorr(phi, vtheta, levels, X, Z, corr);
+  
+  SVDMd svdcorr(corr);
+  VectorXd svalcorr = svdcorr.singularValues();
+  double cond = svalcorr(0)/svalcorr(svalcorr.size()-1);
+  double ethres;
+  if(log(cond) > condthres)
+  {
+    ethres = exp(condthres);
+    nug = svalcorr(0)*(cond-ethres)/cond/(ethres-1.0);
+    corr += nug * MatrixXd::Identity(n,n);
+  }
   LLTMd lltcorr(corr);
   if(lltcorr.info() != Eigen::Success)
     error("Cholesky failure for correlation matrix!");
@@ -209,12 +222,24 @@ double loglikProd(const VectorXd& phi, const VectorXd& vtheta,
 
 double loglikAdd(const MatrixXd& phi, const VectorXd& vtheta, const VectorXd& vsigma2,
 		 const VectorXi& levels, const MatrixXd& X, const MatrixXi& Z,
-		 const VectorXd& resp)
+		 const VectorXd& resp, double condthres, double& nug)
 {
   int n = X.rows();
   double dn = (double)n;
   MatrixXd corr, lmat;
   addCorr(phi, vtheta, vsigma2, levels, X, Z, corr);
+
+  SVDMd svdcorr(corr);
+  VectorXd svalcorr = svdcorr.singularValues();
+  double cond = svalcorr(0)/svalcorr(svalcorr.size()-1);
+  double ethres;
+  if(log(cond) > condthres)
+  {
+    ethres = exp(condthres);
+    nug = svalcorr(0)*(cond-ethres)/cond/(ethres-1.0);
+    corr += nug * MatrixXd::Identity(n,n);
+  }
+  
   LLTMd lltcorr(corr);
   if(lltcorr.info() != Eigen::Success)
     error("Cholesky failure for correlation matrix!");
@@ -236,13 +261,26 @@ double loglikAdd(const MatrixXd& phi, const VectorXd& vtheta, const VectorXd& vs
 
 double loglikAddHom(const VectorXd& phi, const VectorXd& vtheta,
 		    const VectorXi& levels, const MatrixXd& X,
-		    const MatrixXi& Z, const VectorXd& resp)
+		    const MatrixXi& Z, const VectorXd& resp,
+		    double condthres, double& nug)
 {
   MatrixXd corr;
   int n = X.rows();
   double dn = (double)n;
   MatrixXd lmat;
   addHomCorr(phi, vtheta, levels, X, Z, corr);
+  
+  SVDMd svdcorr(corr);
+  VectorXd svalcorr = svdcorr.singularValues();
+  double cond = svalcorr(0)/svalcorr(svalcorr.size()-1);
+  double ethres;
+  if(log(cond) > condthres)
+  {
+    ethres = exp(condthres);
+    nug = svalcorr(0)*(cond-ethres)/cond/(ethres-1.0);
+    corr += nug * MatrixXd::Identity(n,n);
+  }
+  
   LLTMd lltcorr(corr);
   if(lltcorr.info() != Eigen::Success)
     error("Cholesky failure for correlation matrix!");
@@ -328,12 +366,15 @@ void addHomCrossCorr(const VectorXd& phi, const VectorXd& vtheta,
 void prodPredict(const MatrixXd& X0, const MatrixXi& Z0, const MatrixXd& X,
 		 const MatrixXi& Z,  const VectorXd& resp,
 		 const VectorXd& phi, const VectorXd& vtheta,
-		 const VectorXi& levels, VectorXd& pmean, VectorXd& psig2)
+		 const VectorXi& levels, double nug,
+		 VectorXd& pmean, VectorXd& psig2)
 {
   int n = X.rows();
   double dn = (double)n;
   MatrixXd corr, crosscorr;
   prodCorr(phi, vtheta, levels, X, Z, corr);
+  if(nug>0.0)
+    corr += nug*MatrixXd::Identity(n,n);
   LLTMd lltcorr(corr);
   if(lltcorr.info() != Eigen::Success)
     error("Cholesky failure for correlation matrix!");
@@ -362,11 +403,14 @@ void prodPredict(const MatrixXd& X0, const MatrixXi& Z0, const MatrixXd& X,
 void addPredict(const MatrixXd& X0, const MatrixXi& Z0, const MatrixXd& X,
 		const MatrixXi& Z,  const VectorXd& resp, const MatrixXd& phi,
 		const VectorXd& vtheta, const VectorXd& vsigma2,
-		const VectorXi& levels, VectorXd& pmean, VectorXd& psig2)
+		const VectorXi& levels, double nug,
+		VectorXd& pmean, VectorXd& psig2)
 {
   int n = X.rows();
   MatrixXd corr, crosscorr;
   addCorr(phi, vtheta, vsigma2, levels, X, Z, corr);
+  if(nug > 0.0)
+    corr += nug*MatrixXd::Identity(n,n);
   LLTMd lltcorr(corr);
   if(lltcorr.info() != Eigen::Success)
     error("Cholesky failure for correlation matrix!");
@@ -392,12 +436,15 @@ void addPredict(const MatrixXd& X0, const MatrixXi& Z0, const MatrixXd& X,
 void addHomPredict(const MatrixXd& X0, const MatrixXi& Z0, const MatrixXd& X,
 		   const MatrixXi& Z,  const VectorXd& resp,
 		   const VectorXd& phi, const VectorXd& vtheta,
-		   const VectorXi& levels, VectorXd& pmean, VectorXd& psig2)
+		   const VectorXi& levels, double nug,
+		   VectorXd& pmean, VectorXd& psig2)
 {
   int n = X.rows();
   double dn = (double)n;
   MatrixXd corr, crosscorr;
   addHomCorr(phi, vtheta, levels, X, Z, corr);
+  if(nug > 0.0)
+    corr += nug*MatrixXd::Identity(n,n);
   LLTMd lltcorr(corr);
   if(lltcorr.info() != Eigen::Success)
     error("Cholesky failure for correlation matrix!");

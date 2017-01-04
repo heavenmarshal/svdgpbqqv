@@ -17,7 +17,7 @@ buildBasis <- function(response,percent=.95,numbas=NULL)
     ret <- list(basis=basis,redd=redd,coeff=coeff,
                 numbas=numbas)
 }
-svdBqqvGP_worker <- function(xx,zz,response,lbasis,nn,TT,covtype,nthread=2)
+svdBqqvGP_worker <- function(xx,zz,response,lbasis,nn,TT,covtype,condthres,nthread=2)
 {
     basis <- lbasis$basis
     numbas <- ncol(basis)
@@ -30,7 +30,7 @@ svdBqqvGP_worker <- function(xx,zz,response,lbasis,nn,TT,covtype,nthread=2)
     cl <- parallel::makeCluster(nthread)
     parallel::clusterEvalQ(cl,{source("bqqv.r");
         dyn.load("bqqv.so")})
-    mdlist <- tryCatch(parallel::parApply(cl,coeff,2,estim,xx,zz),
+    mdlist <- tryCatch(parallel::parApply(cl,coeff,2,estim,xx,zz,condthres=condthres),
                        finally=parallel::stopCluster(cl))
     ret <- list(mdlist=mdlist,basis=basis,numbas=numbas,TT=TT,varres=varres)
     class(ret) <- "svdBqqvGP"
@@ -50,7 +50,7 @@ svdBqqvGP_worker <- function(xx,zz,response,lbasis,nn,TT,covtype,nthread=2)
 ##     return(ret)
 ## }
 
-svdBqqvGP <- function(xx,zz,response,covtype=c("Prod","Add","AddHom"),percent=.95,numbas=NULL,nthread=2)
+svdBqqvGP <- function(xx,zz,response,covtype=c("Prod","Add","AddHom"),condthres=20,percent=.95,numbas=NULL,nthread=2)
 {
     covtype=match.arg(covtype)
     xx <- as.matrix(xx)
@@ -60,7 +60,7 @@ svdBqqvGP <- function(xx,zz,response,covtype=c("Prod","Add","AddHom"),percent=.9
         stop("inconsistent number of design points!")
     TT <- nrow(response)
     lbasis <- buildBasis(response,percent,numbas)
-    ret <- svdBqqvGP_worker(xx,zz,response,lbasis,nn,TT,covtype,nthread)
+    ret <- svdBqqvGP_worker(xx,zz,response,lbasis,nn,TT,covtype,condthres,nthread)
     return(ret)
 }
 predict.svdBqqvGP <- function(model,newxx,newzz,...)
