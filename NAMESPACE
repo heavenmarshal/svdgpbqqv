@@ -1,0 +1,11 @@
+useDynLib(bqqv)
+
+export(estloglikProd,estloglikAdd,estloglikAddHom,predict.bqqvadd,
+       predict.bqqvprod,predict.bqqvaddhom,svdBqqvGP,predict.svdBqqvGP,
+       estloglikAddDyn,predict.bqqvaddDyn)
+
+importFrom(parallel,makeCluster)
+importFrom(parallel,parApply)
+importFrom(parallel,stopCluster)
+importFrom(lhs,maximinLHS)
+importFrom(rgenoud,genoud)

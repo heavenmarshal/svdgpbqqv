@@ -1,4 +1,3 @@
-source("bqqv.r")
 buildBasis <- function(response,percent=.95,numbas=NULL)
 {
     svdm <- svd(response)
@@ -28,8 +27,6 @@ svdBqqvGP_worker <- function(xx,zz,response,lbasis,nn,TT,covtype,condthres,nthre
     nthread <- min(nthread,numbas)
     estim <- get(paste("estloglik",covtype,sep=""))
     cl <- parallel::makeCluster(nthread)
-    parallel::clusterEvalQ(cl,{source("bqqv.r");
-        dyn.load("bqqv.so")})
     mdlist <- tryCatch(parallel::parApply(cl,coeff,2,estim,xx,zz,condthres=condthres),
                        finally=parallel::stopCluster(cl))
     ret <- list(mdlist=mdlist,basis=basis,numbas=numbas,TT=TT,varres=varres)
@@ -50,7 +47,8 @@ svdBqqvGP_worker <- function(xx,zz,response,lbasis,nn,TT,covtype,condthres,nthre
 ##     return(ret)
 ## }
 
-svdBqqvGP <- function(xx,zz,response,covtype=c("Prod","Add","AddHom"),condthres=20,percent=.95,numbas=NULL,nthread=2)
+svdBqqvGP <- function(xx,zz,response,covtype=c("Prod","Add","AddHom"),
+                      condthres=20,percent=.95,numbas=NULL,nthread=2)
 {
     covtype=match.arg(covtype)
     xx <- as.matrix(xx)

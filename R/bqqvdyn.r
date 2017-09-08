@@ -1,4 +1,3 @@
-#dyn.load("bqqvdyn.so")
 findlevel <- function(x)
 {
     return(length(unique(x)))

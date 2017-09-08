@@ -1,0 +1,7 @@
+Package: bqqv
+Version: 1.0-1
+Date: 2017-05-09
+Author: Ru Zhang
+Depends: R (>= 2.14)
+Imports: parallel, lhs, rgenoud
+NeedsCompilation: yes

@@ -1,4 +1,3 @@
-library("lhs")
 findlevel <- function(x)
 {
     return(length(unique(x)))
