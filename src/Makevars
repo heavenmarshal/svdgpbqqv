@@ -1,1 +1,1 @@
-PKG_CXXFLAGS = -I/usr/local/include/eigen3 ${LAPACK_LIBS}
+PKG_CXXFLAGS = -Id:/libraries/eigen ${LAPACK_LIBS}

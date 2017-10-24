@@ -20,7 +20,7 @@ void nugDetermine(const MatrixXd& mat, double& cond, double& anorm)
   double *matcp = new double[n*n];
   double *work = new double[4*n];
   int *iwork = new int[n];
-  
+
   std::copy(mat.data(), mat.data()+n*n,matcp);
   anorm = F77_CALL(dlange)(typeNorm,&n,&n,matcp,&n,work);
   F77_CALL(dgetrf)(&n,&n,matcp,&n, iwork, &info);
@@ -175,7 +175,7 @@ void addHomCorr(const VectorXd& phi, const VectorXd& vtheta,
   vector<MatrixXd> vQualCorr;
   MatrixXd quancorr;
   MatrixXd qualcorr = MatrixXd::Zero(n,n);
-  
+
   vecQualCorr(vtheta, levels, vQualCorr);
   quanCorr(phi, X, quancorr);
   corr = quancorr;
@@ -254,7 +254,7 @@ double loglikAdd(const MatrixXd& phi, const VectorXd& vtheta, const VectorXd& vs
     nug = anorm*(cond-ethres)/cond/(ethres-1.0);
     corr += nug * MatrixXd::Identity(n,n);
   }
-  
+
   LLTMd lltcorr(corr);
   if(lltcorr.info() != Eigen::Success)
     error("Cholesky failure for correlation matrix!");
@@ -269,8 +269,9 @@ double loglikAdd(const MatrixXd& phi, const VectorXd& vtheta, const VectorXd& vs
   double bily1 = resp.dot(sol1);
 
   double rss = quady - bily1*bily1/quad1;
+  double sigma2 = rss/dn;
   double logdet = lmat.diagonal().array().log().sum();
-  double loglik = -0.5*(dn*LOG2PI+rss)-logdet;
+  double loglik = -0.5*dn*(LOG2PI+log(sigma2))-logdet;
   return loglik;
 }
 
@@ -286,14 +287,14 @@ double loglikAddHom(const VectorXd& phi, const VectorXd& vtheta,
   MatrixXd lmat;
   addHomCorr(phi, vtheta, levels, X, Z, corr);
   nugDetermine(corr, cond, anorm);
-    
+
   if(log(cond) > condthres)
   {
     ethres = exp(condthres);
     nug = anorm*(cond-ethres)/cond/(ethres-1.0);
     corr += nug * MatrixXd::Identity(n,n);
   }
-  
+
   LLTMd lltcorr(corr);
   if(lltcorr.info() != Eigen::Success)
     error("Cholesky failure for correlation matrix!");
